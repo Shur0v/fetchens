@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 // Validates a fully qualified domain URL like https://api.example.com
 function isValidDomainUrl(candidate: string): boolean {
@@ -132,6 +132,8 @@ export default function AppShell() {
   const [showAuthControls, setShowAuthControls] = useState(false);
   const [isPasteOverlayOpen, setIsPasteOverlayOpen] = useState(false);
   const [pasteBuffer, setPasteBuffer] = useState("");
+  const tokenSectionRef = useRef<HTMLDivElement | null>(null);
+  const [tokenSectionMaxHeight, setTokenSectionMaxHeight] = useState<number>(0);
 
   // Derived: parsed object and paths
   const parsedObject = useMemo(() => parseJsonSafely(rawJson), [rawJson]);
@@ -281,6 +283,15 @@ export default function AppShell() {
     const t = setTimeout(() => setToast(null), 1400);
     return () => clearTimeout(t);
   }, [toast]);
+
+  // Measure token section height for smooth expand/collapse
+  useEffect(() => {
+    if (showAuthControls && tokenSectionRef.current) {
+      setTokenSectionMaxHeight(tokenSectionRef.current.scrollHeight);
+    } else {
+      setTokenSectionMaxHeight(0);
+    }
+  }, [showAuthControls, tokenType, customHeaderName, customPrefix, token, showToken]);
 
   const composedUrl = useMemo(() => `${domain || ""}${endpoint || ""}`, [domain, endpoint]);
 
@@ -480,10 +491,10 @@ export default function AppShell() {
             {/* Controls */}
             <section aria-label="Controls" className="flex flex-col gap-3">
               {/* Main 75/25 split with 24px gap */}
-              <div className="grid grid-cols-1 md:[grid-template-columns:3fr_1fr] gap-6 items-start">
+              <div className="grid grid-cols-1 md:[grid-template-columns:3fr_1fr] gap-6 items-center">
                 {/* Left: inputs and token */}
-                <div className="flex flex-col gap-3">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className={`flex flex-col ${showAuthControls ? "gap-3" : "gap-0"}`}>
+                  <div className={`grid grid-cols-1 md:grid-cols-2 ${showAuthControls ? "gap-3 md:gap-3" : "gap-0 md:gap-3"}`}>
                     <div className="flex flex-col gap-1">
                       <input
                         type="url"
@@ -509,9 +520,17 @@ export default function AppShell() {
                     </div>
                   </div>
 
-                  {/* Auth Token inline strip */}
-                  {showAuthControls && (
-                    <div className="rounded-md border border-zinc-700/60 bg-zinc-900 p-2 flex items-center gap-2">
+                  {/* Auth Token inline strip with smooth expand/collapse */}
+                  <div
+                    style={{ maxHeight: tokenSectionMaxHeight }}
+                    className="transition-all duration-300 overflow-hidden"
+                  >
+                    <div
+                      ref={tokenSectionRef}
+                      className={`rounded-md border border-zinc-700/60 bg-zinc-900 p-2 flex items-center gap-2 transition-all duration-300 transform-gpu ${
+                        showAuthControls ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3 pointer-events-none"
+                      }`}
+                    >
                       <select
                         value={tokenType}
                         onChange={(e) =>
@@ -565,11 +584,11 @@ export default function AppShell() {
                         {showToken ? "Hide" : "Show"}
                       </button>
                     </div>
-                  )}
+                  </div>
                 </div>
 
                 {/* Right: actions box (25%) */}
-                <div className="hidden md:flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 p-2">
+                <div className="hidden md:flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 p-2 self-center">
                   <button
                     type="button"
                     onClick={() => setShowAuthControls((v) => !v)}
