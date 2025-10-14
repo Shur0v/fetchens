@@ -92,7 +92,7 @@ export default function DesignMock() {
                   </div>
                 </div>
                 <div className="flex-1 overflow-auto p-3">
-                  {/* Loaded state samplee */}
+                  {/* Loaded state sample */}
                   <pre className="text-sm leading-relaxed whitespace-pre-wrap break-words text-zinc-50 font-mono">{
 `{
   "users": [
