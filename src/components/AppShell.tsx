@@ -222,26 +222,34 @@ export default function AppShell() {
     const indent = { paddingLeft: `${depth * 12}px` } as const;
     const isBranch = node.type === "object" || node.type === "array";
     const isOpen = expanded.has(node.path);
+    const keyColorByDepth = [
+      "text-stone-900",
+      "text-stone-800",
+      "text-stone-700",
+      "text-stone-700",
+      "text-stone-700",
+    ];
+    const keyColor = keyColorByDepth[depth % keyColorByDepth.length];
     return (
       <div>
-        <div className="group flex items-center justify-between gap-2 rounded-md px-2 py-1 hover:bg-zinc-100" style={indent}>
+        <div className="group flex items-center justify-between gap-2 rounded-md px-2 py-1 hover:bg-amber-100/70" style={indent}>
           <button
             type="button"
             onClick={() => (isBranch ? toggleExpand(node.path) : navigator.clipboard.writeText(node.path).then(() => setToast("Copied path")))}
             className="flex items-center gap-2 text-left text-[12px] text-zinc-800"
           >
             {isBranch ? (
-              <span className="inline-block w-5 text-zinc-600 text-sm">{isOpen ? "▾" : "▸"}</span>
+              <span className="inline-block w-6 text-amber-700 text-lg leading-none">{isOpen ? "▾" : "▸"}</span>
             ) : (
-              <span className="inline-block w-5 text-zinc-600 text-sm">•</span>
+              <span className="inline-block w-6 text-amber-700 text-lg leading-none">•</span>
             )}
-            <span className="font-mono break-words">
+            <span className={`font-mono break-words ${keyColor}`}>
               {node.key}
               {node.type === "array" ? " []" : node.type === "object" ? " {}" : node.valuePreview ? `: ${node.valuePreview}` : ""}
             </span>
           </button>
           <div className="flex items-center gap-2 min-w-0 invisible group-hover:visible">
-            <span className="font-mono text-[11px] text-zinc-500 truncate max-w-[160px] md:max-w-[260px]" title={node.path}>
+            <span className="font-mono text-[11px] text-stone-600 truncate max-w-[160px] md:max-w-[260px]" title={node.path}>
               {node.path}
             </span>
             <button
@@ -250,7 +258,7 @@ export default function AppShell() {
                 await navigator.clipboard.writeText(node.path);
                 setToast("Copied path");
               }}
-              className="text-[11px] text-zinc-600 hover:text-zinc-800 px-2 py-0.5 rounded border border-zinc-300 bg-white"
+              className="text-[11px] text-stone-700 hover:text-stone-900 px-2 py-0.5 rounded border border-amber-300 bg-amber-50"
               title="Copy path"
             >
               Copy
@@ -471,137 +479,154 @@ export default function AppShell() {
           <main className="flex flex-col gap-6 md:gap-8">
             {/* Controls */}
             <section aria-label="Controls" className="flex flex-col gap-3">
-              <div className="grid grid-cols-1 md:[grid-template-columns:1fr_1fr_180px] gap-3">
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-zinc-600">Domain</label>
-                  <input
-                    type="url"
-                    placeholder="https://api.example.com"
-                    value={domain}
-                    onChange={(e) => setDomain(e.target.value)}
-                    className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-0 focus:border-[0.8px] ${
-                      domainInvalid ? "border-red-500 focus:border-red-500" : "border-zinc-300 focus:border-zinc-300"
-                    }`}
-                  />
+              {/* Main 75/25 split with 24px gap */}
+              <div className="grid grid-cols-1 md:[grid-template-columns:3fr_1fr] gap-6 items-start">
+                {/* Left: inputs and token */}
+                <div className="flex flex-col gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1">
+                      <input
+                        type="url"
+                        placeholder="https://api.example.com (Domain)"
+                        value={domain}
+                        onChange={(e) => setDomain(e.target.value)}
+                        className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-0 focus:border-[0.8px] ${
+                          domainInvalid ? "border-red-500 focus:border-red-500" : "border-zinc-300 focus:border-zinc-300"
+                        }`}
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <input
+                        type="text"
+                        placeholder="/v1/users (Endpoint)"
+                        value={endpoint}
+                        onChange={(e) => setEndpoint(e.target.value)}
+                        className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-0 focus:border-[0.8px] ${
+                          endpointInvalid ? "border-red-500 focus:border-red-500" : "border-zinc-300 focus:border-zinc-300"
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Auth Token inline strip */}
+                  {showAuthControls && (
+                    <div className="rounded-md border border-zinc-700/60 bg-zinc-900 p-2 flex items-center gap-2">
+                      <select
+                        value={tokenType}
+                        onChange={(e) =>
+                          setTokenType(
+                            e.target.value as
+                              | "Bearer"
+                              | "API Key"
+                              | "Refresh Token"
+                              | "Basic"
+                              | "Custom Header"
+                          )
+                        }
+                        className="rounded-md border border-zinc-300 bg-white px-2 py-2 text-xs text-zinc-700 focus:outline-none focus:ring-2 focus:ring-black"
+                      >
+                        <option value="Bearer">Bearer</option>
+                        <option value="API Key">API Key</option>
+                        <option value="Refresh Token">Refresh Token</option>
+                        <option value="Basic">Basic</option>
+                        <option value="Custom Header">Custom Header</option>
+                      </select>
+                      {tokenType === "Custom Header" && (
+                        <>
+                          <input
+                            type="text"
+                            placeholder="Header name (e.g., X-Auth-Token)"
+                            value={customHeaderName}
+                            onChange={(e) => setCustomHeaderName(e.target.value)}
+                            className="w-[180px] rounded-md border border-zinc-300 px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Prefix (optional)"
+                            value={customPrefix}
+                            onChange={(e) => setCustomPrefix(e.target.value)}
+                            className="w-[150px] rounded-md border border-zinc-300 px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black"
+                          />
+                        </>
+                      )}
+                      <input
+                        type={showToken ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={token}
+                        onChange={(e) => setToken(e.target.value)}
+                        className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowToken((v) => !v)}
+                        className="shrink-0 rounded-md border border-zinc-300 px-2 py-2 text-xs hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-black"
+                      >
+                        {showToken ? "Hide" : "Show"}
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-zinc-600">Endpoint</label>
-                  <input
-                    type="text"
-                    placeholder="/v1/users"
-                    value={endpoint}
-                    onChange={(e) => setEndpoint(e.target.value)}
-                    className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-0 focus:border-[0.8px] ${
-                      endpointInvalid ? "border-red-500 focus:border-red-500" : "border-zinc-300 focus:border-zinc-300"
-                    }`}
-                  />
-                </div>
-
-                {/* Add/Hide token toggle button (inline on md+, wide and full-height) */}
-                <div className="hidden md:block self-stretch">
+                {/* Right: actions box (25%) */}
+                <div className="hidden md:flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 p-2">
                   <button
                     type="button"
                     onClick={() => setShowAuthControls((v) => !v)}
-                    className="h-full w-full rounded-md border border-zinc-300 text-sm font-medium hover:bg-zinc-800 hover:text-white focus:outline-none focus:ring-2 focus:ring-black"
+                    className="w-full rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-stone-800 hover:bg-amber-100 hover:text-stone-900 focus:outline-none focus:ring-2 focus:ring-amber-300"
                   >
                     {showAuthControls ? "Hide token" : "Add token"}
                   </button>
-                </div>
-              </div>
-
-              {/* Mobile: token toggle below inputs (centered) */}
-              <div className="md:hidden flex items-center justify-center">
-                <button
-                  type="button"
-                  onClick={() => setShowAuthControls((v) => !v)}
-                  className="w-full rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-800 hover:text-white focus:outline-none focus:ring-2 focus:ring-black"
-                >
-                  {showAuthControls ? "Hide token" : "Add token"}
-                </button>
-              </div>
-
-              {/* Auth Token (collapsible) */}
-              {showAuthControls && (
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-zinc-600">Auth Token (optional)</label>
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={tokenType}
-                      onChange={(e) =>
-                        setTokenType(
-                          e.target.value as
-                            | "Bearer"
-                            | "API Key"
-                            | "Refresh Token"
-                            | "Basic"
-                            | "Custom Header"
-                        )
-                      }
-                      className="rounded-md border border-zinc-300 bg-white px-2 py-2 text-xs text-zinc-700 focus:outline-none focus:ring-2 focus:ring-black"
-                    >
-                      <option value="Bearer">Bearer</option>
-                      <option value="API Key">API Key</option>
-                      <option value="Refresh Token">Refresh Token</option>
-                      <option value="Basic">Basic</option>
-                      <option value="Custom Header">Custom Header</option>
-                    </select>
-                    {tokenType === "Custom Header" && (
-                      <>
-                        <input
-                          type="text"
-                          placeholder="Header name (e.g., X-Auth-Token)"
-                          value={customHeaderName}
-                          onChange={(e) => setCustomHeaderName(e.target.value)}
-                          className="w-[180px] rounded-md border border-zinc-300 px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Prefix (optional)"
-                          value={customPrefix}
-                          onChange={(e) => setCustomPrefix(e.target.value)}
-                          className="w-[150px] rounded-md border border-zinc-300 px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black"
-                        />
-                      </>
-                    )}
-                    <input
-                      type={showToken ? "text" : "password"}
-                      placeholder="••••••••"
-                      value={token}
-                      onChange={(e) => setToken(e.target.value)}
-                      className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black"
-                    />
+                  <div className="mt-1 flex gap-2">
                     <button
-                      type="button"
-                      onClick={() => setShowToken((v) => !v)}
-                      className="shrink-0 rounded-md border border-zinc-300 px-2 py-2 text-xs hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-black"
+                      onClick={onFetch}
+                      disabled={isLoading}
+                      className="w-full rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-stone-800 hover:bg-amber-100 hover:text-stone-900 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-amber-300"
                     >
-                      {showToken ? "Hide" : "Show"}
+                      {isLoading ? "Fetching..." : "Fetch"}
+                    </button>
+                    <button
+                      onClick={onReset}
+                      className="w-full rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-stone-800 hover:bg-amber-100 hover:text-stone-900 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                    >
+                      Clear
                     </button>
                   </div>
                 </div>
-              )}
+              </div>
+
+              {/* Mobile actions box */}
+              <div className="md:hidden rounded-lg border border-amber-300 bg-amber-50 p-2 flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAuthControls((v) => !v)}
+                  className="w-full rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-stone-800 hover:bg-amber-100 hover:text-stone-900 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                >
+                  {showAuthControls ? "Hide token" : "Add token"}
+                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={onFetch}
+                    disabled={isLoading}
+                    className="w-full rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-stone-800 hover:bg-amber-100 hover:text-stone-900 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                  >
+                    {isLoading ? "Fetching..." : "Fetch"}
+                  </button>
+                  <button
+                    onClick={onReset}
+                    className="w-full rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-stone-800 hover:bg-amber-100 hover:text-stone-900 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
 
               <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                 <div className="text-xs text-zinc-500">
                   URL: <span className="font-mono">{`{domain}{endpoint}`}</span> → <span className="font-mono">{composedUrl || "(empty)"}</span>
                   <span className="ml-2">Only GET supported for now.</span>
                 </div>
-                <div className="sm:ml-auto flex gap-2">
-                  <button
-                    onClick={onFetch}
-                    disabled={isLoading}
-                    className="rounded-md bg-black text-white px-4 py-2 text-sm hover:bg-zinc-800 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-black"
-                  >
-                    {isLoading ? "Fetching..." : "Fetch"}
-                  </button>
-                  <button
-                    onClick={onReset}
-                    className="rounded-md border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-800 hover:text-white focus:outline-none focus:ring-2 focus:ring-black"
-                  >
-                    Reset
-                  </button>
-                </div>
+                {/* Action buttons moved to the right-side box */}
               </div>
 
               {(error || domainInvalid || endpointInvalid || statusCode) && (
@@ -710,9 +735,9 @@ export default function AppShell() {
                 )}
               </div>
 
-              {/* Path Detector - Light theme */}
-              <div className="rounded-lg border border-zinc-200 bg-zinc-50 min-h-[360px] lg:min-h-[480px] flex flex-col shadow-sm">
-                <div className="flex items-center justify-between gap-3 border-b border-zinc-200 bg-zinc-100 px-3 py-2 rounded-t-lg">
+              {/* Path Detector - Vintage soft theme */}
+              <div className="rounded-lg border border-amber-300 bg-amber-50 min-h-[360px] lg:min-h-[480px] flex flex-col shadow-sm">
+                <div className="flex items-center justify-between gap-3 border-b border-amber-200 bg-amber-100 px-3 py-2 rounded-t-lg">
                   <h3 className="text-xs font-medium text-zinc-700">Detected JSON Paths</h3>
                 </div>
                 <div className="p-3">
@@ -723,13 +748,13 @@ export default function AppShell() {
                       placeholder="Search paths (e.g., name)"
                       value={pathSearch}
                       onChange={(e) => setPathSearch(e.target.value)}
-                      className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black"
+                      className="w-full rounded-md border border-amber-300 bg-white/90 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-300"
                     />
                     {pathSearch && (
                       <button
                         type="button"
                         onClick={() => setPathSearch("")}
-                        className="text-xs text-zinc-600 hover:underline"
+                        className="text-xs text-stone-700 hover:underline"
                         title="Clear"
                       >
                         × Clear
@@ -739,16 +764,16 @@ export default function AppShell() {
                 </div>
                 <div className="flex-1 overflow-auto px-3 pb-3">
                   {isLoading ? (
-                    <div className="flex items-center gap-2 text-zinc-600 text-xs">
+                    <div className="flex items-center gap-2 text-stone-700 text-xs">
                       <span className="inline-block h-3 w-3 rounded-full border-2 border-zinc-500 border-t-transparent animate-spin"></span>
                       Fetching…
                     </div>
                   ) : !parsedObject ? (
-                    <p className="text-xs text-zinc-500">No paths yet. Paths will appear once we fetch a valid JSON response.</p>
+                    <p className="text-xs text-stone-600">No paths yet. Paths will appear once we fetch a valid JSON response.</p>
                   ) : !filteredTree ? (
-                    <p className="text-xs text-zinc-500">No paths match your search.</p>
+                    <p className="text-xs text-stone-600">No paths match your search.</p>
                   ) : (
-                    <div className="text-[12px] text-zinc-800 font-mono">
+                    <div className="text-[12px] text-stone-800 font-mono">
                       <JsonTreeView node={filteredTree} depth={0} />
                     </div>
                   )}
