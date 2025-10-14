@@ -155,6 +155,18 @@ export default function AppShell() {
     return "";
   }
 
+  // Convert concrete indexes like data[0].items[2].id → data[i].items[j].id
+  // Uses a sequence of index variables for nested arrays: i, j, k, l, m, n
+  function makeDynamicPath(concretePath: string): string {
+    const indexVarNames = ["i", "j", "k", "l", "m", "n"]; // extend if needed
+    let depth = 0;
+    return concretePath.replace(/\[(\d+)\]/g, () => {
+      const v = indexVarNames[Math.min(depth, indexVarNames.length - 1)];
+      depth += 1;
+      return `[${v}]`;
+    });
+  }
+
   function buildJsonTree(value: unknown, basePath: string = "data"): JsonTreeNode {
     if (Array.isArray(value)) {
       const children: JsonTreeNode[] = [];
@@ -237,7 +249,11 @@ export default function AppShell() {
         <div className="group flex items-center justify-between gap-2 rounded-md px-2 py-1 hover:bg-amber-100/70" style={indent}>
           <button
             type="button"
-            onClick={() => (isBranch ? toggleExpand(node.path) : navigator.clipboard.writeText(node.path).then(() => setToast("Copied path")))}
+            onClick={() => (
+              isBranch
+                ? toggleExpand(node.path)
+                : navigator.clipboard.writeText(makeDynamicPath(node.path)).then(() => setToast("Copied dynamic path"))
+            )}
             className="flex items-center gap-2 text-left text-[12px] text-zinc-800"
           >
             {isBranch ? (
@@ -251,17 +267,17 @@ export default function AppShell() {
             </span>
           </button>
           <div className="flex items-center gap-2 min-w-0 invisible group-hover:visible">
-            <span className="font-mono text-[11px] text-stone-600 truncate max-w-[160px] md:max-w-[260px]" title={node.path}>
-              {node.path}
+            <span className="font-mono text-[11px] text-stone-600 truncate max-w-[160px] md:max-w-[260px]" title={makeDynamicPath(node.path)}>
+              {makeDynamicPath(node.path)}
             </span>
             <button
               type="button"
               onClick={async () => {
-                await navigator.clipboard.writeText(node.path);
-                setToast("Copied path");
+                await navigator.clipboard.writeText(makeDynamicPath(node.path));
+                setToast("Copied dynamic path");
               }}
               className="text-[11px] text-stone-700 hover:text-stone-900 px-2 py-0.5 rounded border border-amber-300 bg-amber-50"
-              title="Copy path"
+              title="Copy dynamic path (indexes → i/j/k...)"
             >
               Copy
             </button>
@@ -505,6 +521,18 @@ export default function AppShell() {
       cancelled = true;
     };
   }, []);
+
+  // Collapsible Guide state
+  const [showGuide, setShowGuide] = useState(false);
+  const guideRef = useRef<HTMLDivElement | null>(null);
+  const [guideMaxHeight, setGuideMaxHeight] = useState(0);
+  useEffect(() => {
+    if (showGuide && guideRef.current) {
+      setGuideMaxHeight(guideRef.current.scrollHeight);
+    } else {
+      setGuideMaxHeight(0);
+    }
+  }, [showGuide]);
 
   return (
     <div className="min-h-screen">
@@ -855,6 +883,61 @@ export default function AppShell() {
               </div>
             )}
           </main>
+        </div>
+        {/* Collapsible Guide */}
+        <div className="px-4 md:px-8 mt-4 md:mt-6 flex justify-center">
+          <div className="w-full">
+            <button
+              type="button"
+              onClick={() => setShowGuide((v) => !v)}
+              className="w-full rounded-t-md border border-zinc-700 border-b-0 bg-zinc-900/40 px-3 py-2 text-sm font-medium text-zinc-200 hover:bg-zinc-900/60 hover:text-zinc-100 focus:outline-none focus:ring-0 focus-visible:outline-none active:outline-none active:ring-0"
+            >
+              {showGuide ? "Hide How FetchLens works" : "Show How FetchLens works"}
+            </button>
+            <div
+              style={{ maxHeight: guideMaxHeight }}
+              className="transition-all duration-300 overflow-hidden"
+            >
+              <div
+                ref={guideRef}
+                className="rounded-b-none rounded-t-none border-x border-t-0 border-b-0 pb-20 border-zinc-700 bg-zinc-900/50 p-4 text-zinc-200 text-sm leading-6"
+              >
+                <ol className="list-decimal pl-5 space-y-2">
+                  <li>
+                    <span className="font-semibold text-zinc-100">Enter API details:</span> Domain and Endpoint compose into one URL. Only GET is
+                    supported now.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-zinc-100">Optional Authorization:</span> Click Add token to reveal the token strip. Choose a token
+                    type or a custom header, provide values, and the app builds the appropriate headers.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-zinc-100">Fetch and preview:</span> Press Fetch. We measure status, time, and size. The Raw Response
+                    panel shows your JSON with readable colors. Click inside the panel to open a paste overlay to test other JSON
+                    quickly.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-zinc-100">Path explorer:</span> The right panel renders a collapsible JSON tree (Windows-like). Search
+                    prunes the tree and auto-expands matches. Hover a node to reveal actions.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-zinc-100">Dynamic path copy:</span> Clicking a leaf or the Copy action copies a dynamic path suited for
+                    frontend loops. Example: <code className="font-mono">data[0].categories[1].products[0].variants[0].prices.USD</code>
+                    becomes <code className="font-mono">data[i].categories[j].products[k].variants[l].prices.USD</code> so you can paste it
+                    directly inside nested map callbacks.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-zinc-100">Reset easily:</span> Clear the inputs and state with Clear. The token panel collapses and the
+                    inputs resume the compact layout.
+                  </li>
+                </ol>
+                <p className="mt-3 text-zinc-300">
+                  Tips: Paste any JSON to experiment without hitting an API. Use the search to narrow large payloads. The design aims for a
+                  gentle vintage feel while keeping contrast high for readability.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       {/* Toast */}
