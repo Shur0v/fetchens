@@ -472,18 +472,60 @@ export default function AppShell() {
     return <PrimitiveToken value={value} />;
   }
 
+  // Random, non-periodic blink for the brand 'c'
+  const [blinkOn, setBlinkOn] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    function scheduleNext(initialDelay: number) {
+      if (cancelled) return;
+      setTimeout(() => {
+        if (cancelled) return;
+        // Start a burst of 1-4 blinks with random cadence
+        const burstCount = Math.floor(Math.random() * 4) + 1; // 1-4
+        let elapsed = 0;
+        for (let i = 0; i < burstCount; i++) {
+          const between = 100 + Math.random() * 200; // 100-300ms between blinks in burst
+          elapsed += between;
+          setTimeout(() => {
+            if (cancelled) return;
+            setBlinkOn(false);
+            setTimeout(() => {
+              if (cancelled) return;
+              setBlinkOn(true);
+            }, 60 + Math.random() * 120); // off window 60-180ms
+          }, elapsed);
+        }
+        // Schedule next burst after 300-1200ms pause
+        const nextDelay = 300 + Math.random() * 900;
+        scheduleNext(nextDelay);
+      }, initialDelay);
+    }
+    scheduleNext(300 + Math.random() * 900);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="min-h-screen">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <header className="border-b border-zinc-200 px-4 py-4 md:px-8 md:py-5">
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-xl md:text-2xl font-bold tracking-tight">API Response Explorer</h1>
-              <p className="text-xs md:text-sm text-zinc-500 mt-1">Fetch. Preview. Copy JSON paths.</p>
+        <header className="px-4 py-4 md:px-8 md:py-5">
+          <div className="flex items-center justify-center">
+            <div className="text-center">
+              <h1
+                className="text-3xl md:text-6xl text-amber-200"
+                style={{ fontFamily: "Arial, Helvetica, sans-serif", fontWeight: 900, letterSpacing: "2px" }}
+              >
+                Fet
+                <span className={blinkOn ? "opacity-100" : "opacity-10 transition-opacity duration-75"}>c</span>
+                hLens
+              </h1>
+              <p className="text-[11px] md:text-lg text-zinc-500 mt-1">Fetch. Preview. Copy JSON paths.</p>
             </div>
           </div>
         </header>
+        <style jsx>{``}</style>
 
         {/* Content */}
         <div className="py-6 px-4 md:py-10 md:px-8">
