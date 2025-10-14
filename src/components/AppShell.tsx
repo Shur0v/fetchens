@@ -136,29 +136,137 @@ export default function AppShell() {
   // Derived: parsed object and paths
   const parsedObject = useMemo(() => parseJsonSafely(rawJson), [rawJson]);
 
-  function extractPaths(value: unknown, base: string = ""): string[] {
-    const paths: string[] = [];
-    if (Array.isArray(value)) {
-      for (let i = 0; i < value.length; i++) {
-        const child = value[i];
-        const next = `${base}[${i}]`;
-        paths.push(next);
-        paths.push(...extractPaths(child, next));
-      }
-    } else if (value !== null && typeof value === "object") {
-      for (const key of Object.keys(value as Record<string, unknown>)) {
-        const child = (value as Record<string, unknown>)[key];
-        const sep = base ? "." : "";
-        const next = `${base}${sep}${key}`;
-        paths.push(next);
-        paths.push(...extractPaths(child, next));
-      }
-    }
-    return paths;
+  // ----- Tree building for hierarchical path view -----
+  type JsonTreeNode = {
+    key: string;
+    path: string;
+    type: "object" | "array" | "value";
+    valuePreview?: string;
+    children?: JsonTreeNode[];
+  };
+
+  function createValuePreview(v: unknown): string {
+    if (v === null) return "null";
+    const t = typeof v;
+    if (t === "string") return (v as string).length > 24 ? `${(v as string).slice(0, 24)}…` : (v as string);
+    if (t === "number" || t === "boolean") return String(v);
+    return "";
   }
 
-  const allPaths = useMemo(() => (parsedObject ? extractPaths(parsedObject, "data") : []), [parsedObject]);
-  const filteredPaths = useMemo(() => filterPaths(allPaths, pathSearch), [allPaths, pathSearch]);
+  function buildJsonTree(value: unknown, basePath: string = "data"): JsonTreeNode {
+    if (Array.isArray(value)) {
+      const children: JsonTreeNode[] = [];
+      for (let i = 0; i < value.length; i++) {
+        const childValue = value[i];
+        const childPath = `${basePath}[${i}]`;
+        children.push(buildJsonTree(childValue, childPath));
+      }
+      return { key: basePath.split(/\.|\[/).pop() || basePath, path: basePath, type: "array", children };
+    }
+    if (value !== null && typeof value === "object") {
+      const obj = value as Record<string, unknown>;
+      const keys = Object.keys(obj);
+      const children: JsonTreeNode[] = keys.map((k) => buildJsonTree(obj[k], `${basePath}.${k}`));
+      return { key: basePath.split(/\.|\[/).pop() || basePath, path: basePath, type: "object", children };
+    }
+    return { key: basePath.split(/\.|\[/).pop() || basePath, path: basePath, type: "value", valuePreview: createValuePreview(value) };
+  }
+
+  function filterTreeByQuery(node: JsonTreeNode, q: string): JsonTreeNode | null {
+    if (!q) return node;
+    const ql = q.toLowerCase();
+    const selfMatch = node.path.toLowerCase().includes(ql) || (node.valuePreview || "").toLowerCase().includes(ql);
+    if (node.children && node.children.length > 0) {
+      const filteredChildren = node.children.map((c) => filterTreeByQuery(c, q)).filter((c): c is JsonTreeNode => !!c);
+      if (filteredChildren.length > 0 || selfMatch) return { ...node, children: filteredChildren };
+      return null;
+    }
+    return selfMatch ? node : null;
+  }
+
+  const rootTree = useMemo(() => {
+    if (!parsedObject) return null;
+    return buildJsonTree(parsedObject, "data");
+  }, [parsedObject]);
+
+  const filteredTree = useMemo(() => {
+    if (!rootTree) return null;
+    return filterTreeByQuery(rootTree, pathSearch);
+  }, [rootTree, pathSearch]);
+
+  const [expanded, setExpanded] = useState<Set<string>>(new Set(["data"]));
+  useEffect(() => {
+    if (pathSearch && rootTree) {
+      // Expand all during search
+      const stack: JsonTreeNode[] = [rootTree];
+      const all = new Set<string>();
+      while (stack.length) {
+        const n = stack.pop()!;
+        all.add(n.path);
+        if (n.children) stack.push(...n.children);
+      }
+      setExpanded(all);
+    }
+  }, [pathSearch, rootTree]);
+
+  function toggleExpand(path: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  }
+
+  function JsonTreeView({ node, depth }: { node: JsonTreeNode; depth: number }) {
+    const indent = { paddingLeft: `${depth * 12}px` } as const;
+    const isBranch = node.type === "object" || node.type === "array";
+    const isOpen = expanded.has(node.path);
+    return (
+      <div>
+        <div className="group flex items-center justify-between gap-2 rounded-md px-2 py-1 hover:bg-zinc-100" style={indent}>
+          <button
+            type="button"
+            onClick={() => (isBranch ? toggleExpand(node.path) : navigator.clipboard.writeText(node.path).then(() => setToast("Copied path")))}
+            className="flex items-center gap-2 text-left text-[12px] text-zinc-800"
+          >
+            {isBranch ? (
+              <span className="inline-block w-5 text-zinc-600 text-sm">{isOpen ? "▾" : "▸"}</span>
+            ) : (
+              <span className="inline-block w-5 text-zinc-600 text-sm">•</span>
+            )}
+            <span className="font-mono break-words">
+              {node.key}
+              {node.type === "array" ? " []" : node.type === "object" ? " {}" : node.valuePreview ? `: ${node.valuePreview}` : ""}
+            </span>
+          </button>
+          <div className="flex items-center gap-2 min-w-0 invisible group-hover:visible">
+            <span className="font-mono text-[11px] text-zinc-500 truncate max-w-[160px] md:max-w-[260px]" title={node.path}>
+              {node.path}
+            </span>
+            <button
+              type="button"
+              onClick={async () => {
+                await navigator.clipboard.writeText(node.path);
+                setToast("Copied path");
+              }}
+              className="text-[11px] text-zinc-600 hover:text-zinc-800 px-2 py-0.5 rounded border border-zinc-300 bg-white"
+              title="Copy path"
+            >
+              Copy
+            </button>
+          </div>
+        </div>
+        {isBranch && isOpen && node.children && (
+          <div>
+            {node.children.map((c) => (
+              <JsonTreeView key={c.path} node={c} depth={depth + 1} />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   useEffect(() => {
     if (!toast) return;
@@ -274,6 +382,77 @@ export default function AppShell() {
     setIsPasteOverlayOpen(false);
   }
 
+  // ----- JSON syntax-highlighted pretty view -----
+  const levelColors = [
+    "text-cyan-400",
+    "text-pink-400",
+    "text-amber-300",
+    "text-lime-300",
+    "text-indigo-300",
+  ];
+
+  function PrimitiveToken({ value }: { value: unknown }) {
+    if (value === null) return <span className="text-purple-300">null</span>;
+    switch (typeof value) {
+      case "string":
+        return <span className="text-emerald-300">"{value as string}"</span>;
+      case "number":
+        return <span className="text-amber-300">{String(value)}</span>;
+      case "boolean":
+        return <span className="text-purple-300">{String(value)}</span>;
+      default:
+        return <span className="text-zinc-300">{String(value)}</span>;
+    }
+  }
+
+  function Punct({ ch, depth }: { ch: string; depth: number }) {
+    const cls = levelColors[depth % levelColors.length];
+    return <span className={cls}>{ch}</span>;
+  }
+
+  function JsonCode({ value, depth }: { value: unknown; depth: number }) {
+    const indent = "  ".repeat(depth);
+    if (Array.isArray(value)) {
+      if (value.length === 0) return (
+        <>
+          <Punct ch="[" depth={depth} /><Punct ch="]" depth={depth} />
+        </>
+      );
+      return (
+        <>
+          <Punct ch="[" depth={depth} />{"\n"}
+          {value.map((v, i) => (
+            <span key={i}>
+              {indent}  <JsonCode value={v} depth={depth + 1} />{i < value.length - 1 ? <span className="text-zinc-400">,</span> : null}{"\n"}
+            </span>
+          ))}
+          {indent}<Punct ch="]" depth={depth} />
+        </>
+      );
+    }
+    if (value !== null && typeof value === "object") {
+      const entries = Object.entries(value as Record<string, unknown>);
+      if (entries.length === 0) return (
+        <>
+          <Punct ch="{" depth={depth} /><Punct ch="}" depth={depth} />
+        </>
+      );
+      return (
+        <>
+          <Punct ch="{" depth={depth} />{"\n"}
+          {entries.map(([k, v], idx) => (
+            <span key={k}>
+              {indent}  <span className="text-sky-400">"{k}"</span><span className="text-zinc-400">: </span>
+              <JsonCode value={v} depth={depth + 1} />{idx < entries.length - 1 ? <span className="text-zinc-400">,</span> : null}{"\n"}
+            </span>
+          ))}
+          {indent}<Punct ch="}" depth={depth} />
+        </>
+      );
+    }
+    return <PrimitiveToken value={value} />;
+  }
+
   return (
     <div className="min-h-screen">
       <div className="max-w-7xl mx-auto">
@@ -324,7 +503,7 @@ export default function AppShell() {
                   <button
                     type="button"
                     onClick={() => setShowAuthControls((v) => !v)}
-                    className="h-full w-full rounded-md border border-zinc-300 text-sm font-medium hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-black"
+                    className="h-full w-full rounded-md border border-zinc-300 text-sm font-medium hover:bg-zinc-800 hover:text-white focus:outline-none focus:ring-2 focus:ring-black"
                   >
                     {showAuthControls ? "Hide token" : "Add token"}
                   </button>
@@ -336,7 +515,7 @@ export default function AppShell() {
                 <button
                   type="button"
                   onClick={() => setShowAuthControls((v) => !v)}
-                  className="w-full rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-black"
+                  className="w-full rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-800 hover:text-white focus:outline-none focus:ring-2 focus:ring-black"
                 >
                   {showAuthControls ? "Hide token" : "Add token"}
                 </button>
@@ -418,7 +597,7 @@ export default function AppShell() {
                   </button>
                   <button
                     onClick={onReset}
-                    className="rounded-md border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-black"
+                    className="rounded-md border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-800 hover:text-white focus:outline-none focus:ring-2 focus:ring-black"
                   >
                     Reset
                   </button>
@@ -488,7 +667,7 @@ export default function AppShell() {
                     </div>
                   ) : parsedObject ? (
                     <pre className="text-xs leading-relaxed whitespace-pre-wrap break-words text-zinc-50 font-mono">
-{rawJson}
+                      <JsonCode value={parsedObject} depth={0} />
                     </pre>
                   ) : (
                     <p className="text-xs text-zinc-400">No response yet. Click Fetch to view API output.</p>
@@ -566,27 +745,12 @@ export default function AppShell() {
                     </div>
                   ) : !parsedObject ? (
                     <p className="text-xs text-zinc-500">No paths yet. Paths will appear once we fetch a valid JSON response.</p>
-                  ) : filteredPaths.length === 0 ? (
+                  ) : !filteredTree ? (
                     <p className="text-xs text-zinc-500">No paths match your search.</p>
                   ) : (
-                    <ul className="text-[12px] text-zinc-800 font-mono space-y-1">
-                      {filteredPaths.map((p) => (
-                        <li key={p} className="group flex items-center justify-between gap-2 rounded-md px-2 py-1 hover:bg-zinc-100">
-                          <span className="break-words">{p}</span>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              await navigator.clipboard.writeText(p);
-                              setToast("Copied path");
-                            }}
-                            className="invisible group-hover:visible text-[11px] text-zinc-600 hover:text-zinc-800 px-2 py-0.5 rounded border border-zinc-300 bg-white focus:outline-none focus:ring-2 focus:ring-black"
-                            title="Copy path"
-                          >
-                            Copy
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="text-[12px] text-zinc-800 font-mono">
+                      <JsonTreeView node={filteredTree} depth={0} />
+                    </div>
                   )}
                 </div>
               </div>
