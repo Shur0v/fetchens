@@ -809,7 +809,7 @@ export default function AppShell() {
                       placeholder="Search paths (e.g., name)"
                       value={pathSearch}
                       onChange={(e) => setPathSearch(e.target.value)}
-                      className="w-full rounded-md border border-amber-300 bg-white/90 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-300"
+                      className="w-full rounded-md border border-amber-300 bg-white/90 px-3 py-2 text-sm text-black outline-none focus:ring-2 focus:ring-amber-300"
                     />
                     {pathSearch && (
                       <button
