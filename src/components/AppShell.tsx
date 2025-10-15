@@ -1094,6 +1094,40 @@ export default function AppShell() {
                   Tips: Paste any JSON to experiment without hitting an API. Use the search to narrow large payloads. The design aims for a
                   gentle vintage feel while keeping contrast high for readability.
                 </p>
+                
+                <div className="mt-6 pt-4 border-t border-zinc-700">
+                  <h4 className="font-semibold text-zinc-100 mb-3">🔐 Advanced Token Authentication System</h4>
+                  <div className="space-y-3 text-zinc-300">
+                    <p>
+                      <span className="font-semibold text-zinc-100">Multiple Authentication Methods:</span> FetchLens supports 7 different authentication approaches:
+                    </p>
+                    <ul className="list-disc pl-6 space-y-1">
+                      <li><span className="font-mono text-amber-300">Bearer</span> - Standard JWT tokens with "Bearer " prefix</li>
+                      <li><span className="font-mono text-amber-300">API Key</span> - Simple API keys sent as X-API-Key header</li>
+                      <li><span className="font-mono text-amber-300">Custom Header</span> - Flexible header names with optional prefixes</li>
+                      <li><span className="font-mono text-amber-300">Query Parameter</span> - Tokens sent as URL parameters (?token=value)</li>
+                      <li><span className="font-mono text-amber-300">Cookie</span> - Authentication via cookies</li>
+                      <li><span className="font-mono text-amber-300">Basic</span> - Basic authentication</li>
+                      <li><span className="font-mono text-amber-300">Refresh Token</span> - For token refresh flows</li>
+                    </ul>
+                    <p>
+                      <span className="font-semibold text-zinc-100">Smart Debugging:</span> The Request Details section shows exactly what headers and URLs are being sent, 
+                      making it easy to troubleshoot authentication issues. Console logging provides detailed request/response information.
+                    </p>
+                    <p>
+                      <span className="font-semibold text-zinc-100">Preset Options:</span> Common header names and parameter names are available as dropdown presets, 
+                      but you can always enter custom values for unique API requirements.
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="mt-6 pt-4 border-t border-zinc-700">
+                  <p className="text-zinc-400 text-xs">
+                    <span className="font-semibold text-zinc-300">Created by:</span> Shurov <br/>
+                    <span className="font-semibold text-zinc-300">Authentication System:</span> Enhanced with multiple auth methods and debugging features<br/>
+                    <span className="font-semibold text-zinc-300">Version:</span> 1.0 - Full-featured API exploration tool
+                  </p>
+                </div>
               </div>
             </div>
           </div>
