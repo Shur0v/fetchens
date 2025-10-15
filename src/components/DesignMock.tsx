@@ -22,7 +22,7 @@ export default function DesignMock() {
                 <input
                   type="url"
                   defaultValue="https://jsonplaceholder.typicode.com"
-                  placeholder="https://api.example.com"
+                  placeholder="https://backend.example.com"
                   className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-700 focus:outline-none focus:ring-2 focus:ring-black"
                 />
               </div>

@@ -642,7 +642,7 @@ export default function AppShell() {
                     <div className="flex flex-col gap-1">
                       <input
                         type="url"
-                        placeholder="https://api.example.com (Domain)"
+                        placeholder="https://backend.example.com (Domain)"
                         value={domain}
                         onChange={(e) => setDomain(e.target.value)}
                         className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-0 focus:border-[0.8px] ${
