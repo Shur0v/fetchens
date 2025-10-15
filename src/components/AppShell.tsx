@@ -531,31 +531,40 @@ export default function AppShell() {
   }
 
   // ----- JSON syntax-highlighted pretty view -----
-  const levelColors = [
-    "text-cyan-400",
-    "text-pink-400",
-    "text-amber-300",
-    "text-lime-300",
-    "text-indigo-300",
-  ];
+  // Punctuation colors vary by depth; use deeper hues in light mode for better legibility
+  const levelColors = isDarkMode
+    ? [
+        "text-cyan-400",
+        "text-pink-400",
+        "text-amber-300",
+        "text-lime-300",
+        "text-indigo-300",
+      ]
+    : [
+        "text-cyan-700",
+        "text-pink-700",
+        "text-amber-700",
+        "text-lime-700",
+        "text-indigo-700",
+      ];
 
   function PrimitiveToken({ value }: { value: unknown }) {
-    if (value === null) return <span className="text-purple-300">null</span>;
+    if (value === null) return <span className={`${isDarkMode ? "text-purple-300" : "text-purple-700"} font-semibold`}>null</span>;
     switch (typeof value) {
       case "string":
-        return <span className="text-emerald-300">"{value as string}"</span>;
+        return <span className={`${isDarkMode ? "text-emerald-300" : "text-emerald-700"} font-semibold`}>"{value as string}"</span>;
       case "number":
-        return <span className="text-amber-300">{String(value)}</span>;
+        return <span className={`${isDarkMode ? "text-amber-300" : "text-amber-700"} font-semibold`}>{String(value)}</span>;
       case "boolean":
-        return <span className="text-purple-300">{String(value)}</span>;
+        return <span className={`${isDarkMode ? "text-purple-300" : "text-purple-700"} font-semibold`}>{String(value)}</span>;
       default:
-        return <span className="text-zinc-300">{String(value)}</span>;
+        return <span className={`${isDarkMode ? "text-zinc-300" : "text-zinc-700"} font-semibold`}>{String(value)}</span>;
     }
   }
 
   function Punct({ ch, depth }: { ch: string; depth: number }) {
     const cls = levelColors[depth % levelColors.length];
-    return <span className={cls}>{ch}</span>;
+    return <span className={`${cls} font-semibold`}>{ch}</span>;
   }
 
   function JsonCode({ value, depth }: { value: unknown; depth: number }) {
@@ -571,7 +580,7 @@ export default function AppShell() {
           <Punct ch="[" depth={depth} />{"\n"}
           {value.map((v, i) => (
             <span key={i}>
-              {indent}  <JsonCode value={v} depth={depth + 1} />{i < value.length - 1 ? <span className="text-zinc-400">,</span> : null}{"\n"}
+              {indent}  <JsonCode value={v} depth={depth + 1} />{i < value.length - 1 ? <span className={`${isDarkMode ? "text-zinc-400" : "text-zinc-600"} font-semibold`}>,</span> : null}{"\n"}
             </span>
           ))}
           {indent}<Punct ch="]" depth={depth} />
@@ -590,8 +599,8 @@ export default function AppShell() {
           <Punct ch="{" depth={depth} />{"\n"}
           {entries.map(([k, v], idx) => (
             <span key={k}>
-              {indent}  <span className="text-sky-400">"{k}"</span><span className="text-zinc-400">: </span>
-              <JsonCode value={v} depth={depth + 1} />{idx < entries.length - 1 ? <span className="text-zinc-400">,</span> : null}{"\n"}
+              {indent}  <span className={`${isDarkMode ? "text-sky-400" : "text-sky-700"} font-semibold`}>"{k}"</span><span className={`${isDarkMode ? "text-zinc-400" : "text-zinc-600"} font-semibold`}>: </span>
+              <JsonCode value={v} depth={depth + 1} />{idx < entries.length - 1 ? <span className={`${isDarkMode ? "text-zinc-400" : "text-zinc-600"} font-semibold`}>,</span> : null}{"\n"}
             </span>
           ))}
           {indent}<Punct ch="}" depth={depth} />
@@ -601,38 +610,30 @@ export default function AppShell() {
     return <PrimitiveToken value={value} />;
   }
 
-  // Random, non-periodic blink for the brand 'c'
+  // Random, non-periodic blink for the brand 'c' limited to 2–8 times per minute
+  // We pick the next blink delay uniformly between 7.5s and 30s so the rate
+  // never exceeds 8/min and never drops below ~2/min on average.
   const [blinkOn, setBlinkOn] = useState(true);
   useEffect(() => {
     let cancelled = false;
-    function scheduleNext(initialDelay: number) {
+    function scheduleNextBlink() {
       if (cancelled) return;
+      const minMs = 7500;  // 60s / 8
+      const maxMs = 30000; // 60s / 2
+      const delay = minMs + Math.random() * (maxMs - minMs);
       setTimeout(() => {
         if (cancelled) return;
-        // Start a burst of 1-4 blinks with random cadence
-        const burstCount = Math.floor(Math.random() * 4) + 1; // 1-4
-        let elapsed = 0;
-        for (let i = 0; i < burstCount; i++) {
-          const between = 100 + Math.random() * 200; // 100-300ms between blinks in burst
-          elapsed += between;
-          setTimeout(() => {
-            if (cancelled) return;
-            setBlinkOn(false);
-            setTimeout(() => {
-              if (cancelled) return;
-              setBlinkOn(true);
-            }, 60 + Math.random() * 120); // off window 60-180ms
-          }, elapsed);
-        }
-        // Schedule next burst after 300-1200ms pause
-        const nextDelay = 300 + Math.random() * 900;
-        scheduleNext(nextDelay);
-      }, initialDelay);
+        // single blink
+        setBlinkOn(false);
+        setTimeout(() => {
+          if (cancelled) return;
+          setBlinkOn(true);
+          scheduleNextBlink();
+        }, 100 + Math.random() * 200); // visible off time 100–300ms
+      }, delay);
     }
-    scheduleNext(300 + Math.random() * 900);
-    return () => {
-      cancelled = true;
-    };
+    scheduleNextBlink();
+    return () => { cancelled = true; };
   }, []);
 
   // Collapsible Guide state
