@@ -19,26 +19,46 @@ function isValidEndpointPath(candidate: string): boolean {
 
 // Build auth headers for the selected token type
 function buildAuthHeaders(
-  tokenType: "Bearer" | "API Key" | "Refresh Token" | "Basic" | "Custom Header",
+  tokenType: "Bearer" | "API Key" | "Refresh Token" | "Basic" | "Custom Header" | "Query Parameter" | "Cookie",
   token: string,
   customHeaderName: string,
-  customPrefix: string
+  customPrefix: string,
+  queryParamName: string,
+  cookieName: string
 ): Record<string, string> {
-  if (!token) return {};
+  if (!token || token.trim() === "") return {};
+  
+  const trimmedToken = token.trim();
+  
   switch (tokenType) {
     case "Bearer":
-      return { Authorization: `Bearer ${token}` };
+      return { Authorization: `Bearer ${trimmedToken}` };
     case "API Key":
-      return { "X-API-Key": token };
+      return { "X-API-Key": trimmedToken };
     case "Refresh Token":
-      return { Authorization: `Refresh ${token}` };
+      return { Authorization: `Refresh ${trimmedToken}` };
     case "Basic":
-      return { Authorization: `Basic ${token}` };
+      return { Authorization: `Basic ${trimmedToken}` };
     case "Custom Header": {
       const headerName = (customHeaderName || "X-Custom-Token").trim();
-      const value = customPrefix ? `${customPrefix.trim()} ${token}` : token;
+      if (!headerName) {
+        console.warn("Custom header name is empty, using default");
+        return { "X-Custom-Token": trimmedToken };
+      }
+      const value = customPrefix ? `${customPrefix.trim()} ${trimmedToken}` : trimmedToken;
+      console.log(`Custom header: ${headerName} = ${value}`);
       return { [headerName]: value };
     }
+    case "Cookie": {
+      const cookie = `${cookieName || "auth_token"}=${trimmedToken}`;
+      console.log(`Cookie: ${cookie}`);
+      return { Cookie: cookie };
+    }
+    case "Query Parameter":
+      // Query parameters are handled in URL construction, not headers
+      return {};
+    default:
+      return {};
   }
 }
 
@@ -112,10 +132,14 @@ export default function AppShell() {
   const [endpoint, setEndpoint] = useState("");
   const [token, setToken] = useState("");
   const [tokenType, setTokenType] = useState<
-    "Bearer" | "API Key" | "Refresh Token" | "Basic" | "Custom Header"
+    "Bearer" | "API Key" | "Refresh Token" | "Basic" | "Custom Header" | "Query Parameter" | "Cookie"
   >("Bearer");
   const [customHeaderName, setCustomHeaderName] = useState("X-Custom-Token");
   const [customPrefix, setCustomPrefix] = useState("");
+  const [queryParamName, setQueryParamName] = useState("token");
+  const [cookieName, setCookieName] = useState("auth_token");
+  const [httpMethod, setHttpMethod] = useState<"GET" | "POST" | "PUT" | "PATCH" | "DELETE">("GET");
+  const [requestBody, setRequestBody] = useState("");
   const [showToken, setShowToken] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -309,7 +333,18 @@ export default function AppShell() {
     }
   }, [showAuthControls, tokenType, customHeaderName, customPrefix, token, showToken]);
 
-  const composedUrl = useMemo(() => `${domain || ""}${endpoint || ""}`, [domain, endpoint]);
+  // Build URL with query parameters if needed
+  const composedUrl = useMemo(() => {
+    let url = `${domain || ""}${endpoint || ""}`;
+    
+    // Add token as query parameter if selected
+    if (tokenType === "Query Parameter" && token && queryParamName) {
+      const separator = url.includes("?") ? "&" : "?";
+      url += `${separator}${queryParamName}=${encodeURIComponent(token.trim())}`;
+    }
+    
+    return url;
+  }, [domain, endpoint, tokenType, token, queryParamName]);
 
   const domainInvalid = useMemo(() => {
     if (!domain) return false; // treat empty as neutral
@@ -341,15 +376,47 @@ export default function AppShell() {
         throw new Error("Endpoint must start with /");
       }
       const url = composedUrl;
-      const headers = buildAuthHeaders(tokenType, token, customHeaderName, customPrefix);
+      const headers = buildAuthHeaders(tokenType, token, customHeaderName, customPrefix, queryParamName, cookieName);
+      
+      // Add Content-Type header for non-GET requests with body
+      const requestOptions: RequestInit = {
+        method: httpMethod,
+        headers: { ...headers }
+      };
+      
+      if (httpMethod !== "GET" && requestBody.trim()) {
+        requestOptions.headers = {
+          ...headers,
+          "Content-Type": "application/json"
+        };
+        requestOptions.body = requestBody.trim();
+      }
+      
+      // Debug logging for headers
+      console.log("Request URL:", url);
+      console.log("Request Method:", httpMethod);
+      console.log("Request Headers:", requestOptions.headers);
+      console.log("Request Body:", requestOptions.body || "(none)");
+      
       const t0 = performance.now();
-      const res = await fetch(url, { headers, method: "GET" });
+      const res = await fetch(url, requestOptions);
       const t1 = performance.now();
       setResponseTimeMs(Math.max(0, Math.round(t1 - t0)));
       setStatusCode(res.status);
+      
+      // Log response headers for debugging
+      console.log("Response Status:", res.status);
+      console.log("Response Headers:", Object.fromEntries(res.headers.entries()));
+      
       if (!res.ok) {
         if (res.status === 401) {
-          throw new Error("Unauthorized (401)");
+          throw new Error("Unauthorized (401) - Check your token and authentication method");
+        }
+        if (res.status === 403) {
+          throw new Error("Forbidden (403) - Token may be valid but lacks permissions");
+        }
+        if (res.status === 404) {
+          throw new Error("Not Found (404) - Check your endpoint URL");
         }
         throw new Error(`Request failed (${res.status})`);
       }
@@ -372,6 +439,13 @@ export default function AppShell() {
     setDomain("");
     setEndpoint("");
     setToken("");
+    setTokenType("Bearer");
+    setCustomHeaderName("X-Custom-Token");
+    setCustomPrefix("");
+    setQueryParamName("token");
+    setCookieName("auth_token");
+    setHttpMethod("GET");
+    setRequestBody("");
     setShowToken(false);
     setShowAuthControls(false);
     setError(null);
@@ -580,7 +654,7 @@ export default function AppShell() {
                     <div className="flex flex-col gap-1">
                       <input
                         type="text"
-                        placeholder="/v1/users (Endpoint)"
+                        placeholder="/api/users (Endpoint)"
                         value={endpoint}
                         onChange={(e) => setEndpoint(e.target.value)}
                         className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-0 focus:border-[0.8px] ${
@@ -611,25 +685,45 @@ export default function AppShell() {
                               | "Refresh Token"
                               | "Basic"
                               | "Custom Header"
+                              | "Query Parameter"
+                              | "Cookie"
                           )
                         }
-                        className="rounded-md border border-zinc-300 bg-white px-2 py-2 text-xs text-zinc-700 focus:outline-none focus:ring-2 focus:ring-black"
+                        className="rounded-md border border-zinc-300 bg-zinc-900 text-white px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black"
                       >
                         <option value="Bearer">Bearer</option>
                         <option value="API Key">API Key</option>
                         <option value="Refresh Token">Refresh Token</option>
                         <option value="Basic">Basic</option>
                         <option value="Custom Header">Custom Header</option>
+                        <option value="Query Parameter">Query Parameter</option>
+                        <option value="Cookie">Cookie</option>
                       </select>
                       {tokenType === "Custom Header" && (
                         <>
-                          <input
-                            type="text"
-                            placeholder="Header name (e.g., X-Auth-Token)"
+                          <select
                             value={customHeaderName}
                             onChange={(e) => setCustomHeaderName(e.target.value)}
-                            className="w-[180px] rounded-md border border-zinc-300 px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black"
-                          />
+                            className="w-[180px] rounded-md border border-zinc-300 bg-zinc-900 text-white px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black"
+                          >
+                            <option value="token">token</option>
+                            <option value="X-Auth-Token">X-Auth-Token</option>
+                            <option value="X-API-Token">X-API-Token</option>
+                            <option value="Authorization">Authorization</option>
+                            <option value="X-Custom-Token">X-Custom-Token</option>
+                            <option value="X-Access-Token">X-Access-Token</option>
+                            <option value="X-JWT-Token">X-JWT-Token</option>
+                            <option value="custom">Custom...</option>
+                          </select>
+                          {customHeaderName === "custom" && (
+                            <input
+                              type="text"
+                              placeholder="Enter custom header name"
+                              value={customHeaderName}
+                              onChange={(e) => setCustomHeaderName(e.target.value)}
+                              className="w-[180px] rounded-md border border-zinc-300 px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black"
+                            />
+                          )}
                           <input
                             type="text"
                             placeholder="Prefix (optional)"
@@ -638,6 +732,30 @@ export default function AppShell() {
                             className="w-[150px] rounded-md border border-zinc-300 px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black"
                           />
                         </>
+                      )}
+                      {tokenType === "Query Parameter" && (
+                        <select
+                          value={queryParamName}
+                          onChange={(e) => setQueryParamName(e.target.value)}
+                          className="w-[200px] rounded-md border border-zinc-300 bg-zinc-900 text-white px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black"
+                        >
+                          <option value="token">token</option>
+                          <option value="api_key">api_key</option>
+                          <option value="access_token">access_token</option>
+                          <option value="auth_token">auth_token</option>
+                          <option value="key">key</option>
+                          <option value="apikey">apikey</option>
+                          <option value="custom">Custom...</option>
+                        </select>
+                      )}
+                      {tokenType === "Cookie" && (
+                        <input
+                          type="text"
+                          placeholder="Cookie name (e.g., auth_token)"
+                          value={cookieName}
+                          onChange={(e) => setCookieName(e.target.value)}
+                          className="w-[200px] rounded-md border border-zinc-300 px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black"
+                        />
                       )}
                       <input
                         type={showToken ? "text" : "password"}
@@ -653,6 +771,30 @@ export default function AppShell() {
                       >
                         {showToken ? "Hide" : "Show"}
                       </button>
+                    </div>
+                    
+                    {/* HTTP Method and Request Body */}
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={httpMethod}
+                        onChange={(e) => setHttpMethod(e.target.value as "GET" | "POST" | "PUT" | "PATCH" | "DELETE")}
+                        className="w-[100px] rounded-md border border-zinc-300 px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black"
+                      >
+                        <option value="GET">GET</option>
+                        <option value="POST">POST</option>
+                        <option value="PUT">PUT</option>
+                        <option value="PATCH">PATCH</option>
+                        <option value="DELETE">DELETE</option>
+                      </select>
+                      {httpMethod !== "GET" && (
+                        <textarea
+                          placeholder="Request body (JSON)"
+                          value={requestBody}
+                          onChange={(e) => setRequestBody(e.target.value)}
+                          className="flex-1 rounded-md border border-zinc-300 px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black resize-none"
+                          rows={3}
+                        />
+                      )}
                     </div>
                   </div>
                 </div>
@@ -712,11 +854,28 @@ export default function AppShell() {
 
               <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                 <div className="text-xs text-zinc-500">
-                  URL: <span className="font-mono">{`{domain}{endpoint}`}</span> → <span className="font-mono">{composedUrl || "(empty)"}</span>
-                  <span className="ml-2">Only GET supported for now.</span>
+                  <span className="font-mono font-semibold">{httpMethod}</span> <span className="font-mono">{`{domain}{endpoint}`}</span> → <span className="font-mono">{composedUrl || "(empty)"}</span>
                 </div>
                 {/* Action buttons moved to the right-side box */}
               </div>
+              
+              {/* Debug headers section */}
+              {token && showAuthControls && (
+                <div className="text-xs text-zinc-400 bg-zinc-800/50 p-2 rounded border border-zinc-700">
+                  <div className="font-semibold text-zinc-300 mb-1">Request Details:</div>
+                  {tokenType === "Query Parameter" ? (
+                    <div className="font-mono break-all">
+                      <span className="text-amber-300">URL:</span> <span className="text-zinc-200 break-all">{composedUrl}</span>
+                    </div>
+                  ) : (
+                    Object.entries(buildAuthHeaders(tokenType, token, customHeaderName, customPrefix, queryParamName, cookieName)).map(([key, value]) => (
+                      <div key={key} className="font-mono break-all">
+                        <span className="text-amber-300">{key}:</span> <span className="text-zinc-200 break-all">{value}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
 
               {(error || domainInvalid || endpointInvalid || statusCode) && (
                 <div className="text-xs">
