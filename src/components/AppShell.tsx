@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-// Validates a fully qualified domain URL like https://api.example.com
+// Validates a fully qualified domain URL like https://backend.example.com
 function isValidDomainUrl(candidate: string): boolean {
   try {
     const u = new URL(candidate);
