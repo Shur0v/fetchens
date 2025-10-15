@@ -140,7 +140,46 @@ export default function AppShell() {
   const [cookieName, setCookieName] = useState("auth_token");
   const [httpMethod, setHttpMethod] = useState<"GET" | "POST" | "PUT" | "PATCH" | "DELETE">("GET");
   const [requestBody, setRequestBody] = useState("");
+  const [isDarkMode, setIsDarkMode] = useState(true);
   const [showToken, setShowToken] = useState(false);
+
+  // Fix body and root background color independent of OS/browser theme
+  useEffect(() => {
+    const root = document.documentElement;
+    const body = document.body;
+    const darkBg = "#0a0a0a"; // zinc-950-ish for full-page background
+    const lightBg = "#f9fafb"; // gray-50
+    const bg = isDarkMode ? darkBg : lightBg;
+    root.style.backgroundColor = bg;
+    body.style.backgroundColor = bg;
+    // Also set color-scheme explicitly to avoid UA adjustments
+    root.style.colorScheme = isDarkMode ? "dark" : "light";
+  }, [isDarkMode]);
+
+  // Theme-aware class helpers
+  const themeClasses = {
+    input: isDarkMode 
+      ? 'border-zinc-300 focus:border-zinc-300 bg-zinc-900 text-white' 
+      : 'border-gray-300 focus:border-gray-300 bg-white text-gray-900',
+    inputInvalid: isDarkMode 
+      ? 'border-red-500 focus:border-red-500 bg-zinc-900 text-white' 
+      : 'border-red-500 focus:border-red-500 bg-white text-gray-900',
+    select: isDarkMode 
+      ? 'border-zinc-300 bg-zinc-900 text-white' 
+      : 'border-gray-300 bg-white text-gray-900',
+    button: isDarkMode 
+      ? 'border-amber-300 bg-amber-50 text-stone-800 hover:bg-amber-100' 
+      : 'border-amber-400 bg-amber-100 text-stone-900 hover:bg-amber-200',
+    panel: isDarkMode 
+      ? 'border-zinc-700 bg-zinc-900/50 text-zinc-200' 
+      : 'border-gray-300 bg-gray-100 text-gray-800',
+    debugPanel: isDarkMode 
+      ? 'bg-zinc-800/50 border-zinc-700 text-zinc-400' 
+      : 'bg-gray-200 border-gray-400 text-gray-600',
+    errorPanel: isDarkMode 
+      ? 'border-red-700 bg-red-900/40 text-red-300' 
+      : 'border-red-300 bg-red-100 text-red-800'
+  };
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusCode, setStatusCode] = useState<number | null>(null);
@@ -609,22 +648,33 @@ export default function AppShell() {
   }, [showGuide]);
 
   return (
-    <div className="min-h-screen">
+    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-zinc-900' : 'bg-gray-50'}`}>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <header className="px-4 py-4 md:px-8 md:py-5">
-          <div className="flex items-center justify-center">
-            <div className="text-center">
+          <div className="flex items-center justify-between">
+            <div className="text-center flex-1">
               <h1
-                className="text-3xl md:text-6xl text-amber-200"
+                className={`text-3xl md:text-6xl transition-colors duration-300 ${isDarkMode ? 'text-amber-200' : 'text-amber-600'}`}
                 style={{ fontFamily: "Arial, Helvetica, sans-serif", fontWeight: 900, letterSpacing: "2px" }}
               >
                 Fet
                 <span className={blinkOn ? "opacity-100" : "opacity-10 transition-opacity duration-75"}>c</span>
                 hLens
               </h1>
-              <p className="text-[11px] md:text-lg text-zinc-500 mt-1">Fetch. Preview. Copy JSON paths.</p>
+              <p className={`text-[11px] md:text-lg mt-1 transition-colors duration-300 ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>Fetch. Preview. Copy JSON paths.</p>
             </div>
+            <button
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className={`p-2 rounded-md border transition-colors duration-300 ${
+                isDarkMode 
+                  ? 'border-zinc-300 bg-zinc-900 text-white hover:bg-zinc-800' 
+                  : 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
+              }`}
+              title={`Switch to ${isDarkMode ? 'light' : 'dark'} mode`}
+            >
+              {isDarkMode ? '☀️' : '🌙'}
+            </button>
           </div>
         </header>
         <style jsx>{``}</style>
@@ -645,8 +695,8 @@ export default function AppShell() {
                         placeholder="https://backend.example.com (Domain)"
                         value={domain}
                         onChange={(e) => setDomain(e.target.value)}
-                        className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-0 focus:border-[0.8px] ${
-                          domainInvalid ? "border-red-500 focus:border-red-500" : "border-zinc-300 focus:border-zinc-300"
+                        className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-0 focus:border-[0.8px] transition-colors duration-300 ${
+                          domainInvalid ? themeClasses.inputInvalid : themeClasses.input
                         }`}
                       />
                     </div>
@@ -657,8 +707,8 @@ export default function AppShell() {
                         placeholder="/api/users (Endpoint)"
                         value={endpoint}
                         onChange={(e) => setEndpoint(e.target.value)}
-                        className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-0 focus:border-[0.8px] ${
-                          endpointInvalid ? "border-red-500 focus:border-red-500" : "border-zinc-300 focus:border-zinc-300"
+                        className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-0 focus:border-[0.8px] transition-colors duration-300 ${
+                          endpointInvalid ? themeClasses.inputInvalid : themeClasses.input
                         }`}
                       />
                     </div>
@@ -671,7 +721,11 @@ export default function AppShell() {
                   >
                     <div
                       ref={tokenSectionRef}
-                      className={`rounded-md border border-zinc-700/60 bg-zinc-900 p-2 flex items-center gap-2 transition-all duration-300 transform-gpu ${
+                      className={`rounded-md border p-2 flex items-center gap-2 transition-all duration-300 transform-gpu ${
+                        isDarkMode 
+                          ? 'border-zinc-700/60 bg-zinc-900' 
+                          : 'border-gray-300 bg-gray-50'
+                      } ${
                         showAuthControls ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3 pointer-events-none"
                       }`}
                     >
@@ -689,7 +743,7 @@ export default function AppShell() {
                               | "Cookie"
                           )
                         }
-                        className="rounded-md border border-zinc-300 bg-zinc-900 text-white px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black"
+                        className={`rounded-md border px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black transition-colors duration-300 ${themeClasses.select}`}
                       >
                         <option value="Bearer">Bearer</option>
                         <option value="API Key">API Key</option>
@@ -704,7 +758,7 @@ export default function AppShell() {
                           <select
                             value={customHeaderName}
                             onChange={(e) => setCustomHeaderName(e.target.value)}
-                            className="w-[180px] rounded-md border border-zinc-300 bg-zinc-900 text-white px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black"
+                            className={`w-[180px] rounded-md border px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black transition-colors duration-300 ${themeClasses.select}`}
                           >
                             <option value="token">token</option>
                             <option value="X-Auth-Token">X-Auth-Token</option>
@@ -721,7 +775,7 @@ export default function AppShell() {
                               placeholder="Enter custom header name"
                               value={customHeaderName}
                               onChange={(e) => setCustomHeaderName(e.target.value)}
-                              className="w-[180px] rounded-md border border-zinc-300 px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black"
+                              className={`w-[180px] rounded-md border px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black transition-colors duration-300 ${themeClasses.input}`}
                             />
                           )}
                           <input
@@ -729,7 +783,7 @@ export default function AppShell() {
                             placeholder="Prefix (optional)"
                             value={customPrefix}
                             onChange={(e) => setCustomPrefix(e.target.value)}
-                            className="w-[150px] rounded-md border border-zinc-300 px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black"
+                            className={`w-[150px] rounded-md border px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black transition-colors duration-300 ${themeClasses.input}`}
                           />
                         </>
                       )}
@@ -737,7 +791,7 @@ export default function AppShell() {
                         <select
                           value={queryParamName}
                           onChange={(e) => setQueryParamName(e.target.value)}
-                          className="w-[200px] rounded-md border border-zinc-300 bg-zinc-900 text-white px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black"
+                          className={`w-[200px] rounded-md border px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black transition-colors duration-300 ${themeClasses.select}`}
                         >
                           <option value="token">token</option>
                           <option value="api_key">api_key</option>
@@ -754,7 +808,7 @@ export default function AppShell() {
                           placeholder="Cookie name (e.g., auth_token)"
                           value={cookieName}
                           onChange={(e) => setCookieName(e.target.value)}
-                          className="w-[200px] rounded-md border border-zinc-300 px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black"
+                          className={`w-[200px] rounded-md border px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black transition-colors duration-300 ${themeClasses.input}`}
                         />
                       )}
                       <input
@@ -762,12 +816,16 @@ export default function AppShell() {
                         placeholder="••••••••"
                         value={token}
                         onChange={(e) => setToken(e.target.value)}
-                        className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black"
+                        className={`flex-1 rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black transition-colors duration-300 ${themeClasses.input}`}
                       />
                       <button
                         type="button"
                         onClick={() => setShowToken((v) => !v)}
-                        className="shrink-0 rounded-md border border-zinc-300 px-2 py-2 text-xs hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-black"
+                        className={`shrink-0 rounded-md border px-2 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-black transition-colors duration-300 ${
+                          isDarkMode 
+                            ? 'border-zinc-300 hover:bg-zinc-50 text-zinc-800 bg-zinc-100' 
+                            : 'border-gray-300 hover:bg-gray-50 text-gray-800 bg-white'
+                        }`}
                       >
                         {showToken ? "Hide" : "Show"}
                       </button>
@@ -778,7 +836,7 @@ export default function AppShell() {
                       <select
                         value={httpMethod}
                         onChange={(e) => setHttpMethod(e.target.value as "GET" | "POST" | "PUT" | "PATCH" | "DELETE")}
-                        className="w-[100px] rounded-md border border-zinc-300 px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black"
+                        className={`w-[100px] rounded-md border px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black transition-colors duration-300 ${themeClasses.select}`}
                       >
                         <option value="GET">GET</option>
                         <option value="POST">POST</option>
@@ -791,7 +849,7 @@ export default function AppShell() {
                           placeholder="Request body (JSON)"
                           value={requestBody}
                           onChange={(e) => setRequestBody(e.target.value)}
-                          className="flex-1 rounded-md border border-zinc-300 px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black resize-none"
+                          className={`flex-1 rounded-md border px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-black resize-none transition-colors duration-300 ${themeClasses.input}`}
                           rows={3}
                         />
                       )}
@@ -800,11 +858,19 @@ export default function AppShell() {
                 </div>
 
                 {/* Right: actions box (25%) */}
-                <div className="hidden md:flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 p-2 self-center">
+                <div className={`hidden md:flex flex-col gap-2 rounded-lg border p-2 self-center transition-colors duration-300 ${
+                  isDarkMode 
+                    ? 'border-amber-300 bg-amber-50' 
+                    : 'border-amber-400 bg-amber-100'
+                }`}>
                   <button
                     type="button"
                     onClick={() => setShowAuthControls((v) => !v)}
-                    className="w-full rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-stone-800 hover:bg-amber-100 hover:text-stone-900 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                    className={`w-full rounded-md border px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 transition-colors duration-300 ${
+                      isDarkMode 
+                        ? 'focus:ring-amber-300' 
+                        : 'focus:ring-amber-400'
+                    } ${themeClasses.button}`}
                   >
                     {showAuthControls ? "Hide token" : "Add token"}
                   </button>
@@ -812,13 +878,21 @@ export default function AppShell() {
                     <button
                       onClick={onFetch}
                       disabled={isLoading}
-                      className="w-full rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-stone-800 hover:bg-amber-100 hover:text-stone-900 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                      className={`w-full rounded-md border px-3 py-2 text-sm font-medium disabled:opacity-50 focus:outline-none focus:ring-2 transition-colors duration-300 ${
+                        isDarkMode 
+                          ? 'focus:ring-amber-300' 
+                          : 'focus:ring-amber-400'
+                      } ${themeClasses.button}`}
                     >
                       {isLoading ? "Fetching..." : "Fetch"}
                     </button>
                     <button
                       onClick={onReset}
-                      className="w-full rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-stone-800 hover:bg-amber-100 hover:text-stone-900 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                      className={`w-full rounded-md border px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 transition-colors duration-300 ${
+                        isDarkMode 
+                          ? 'focus:ring-amber-300' 
+                          : 'focus:ring-amber-400'
+                      } ${themeClasses.button}`}
                     >
                       Clear
                     </button>
@@ -827,11 +901,19 @@ export default function AppShell() {
               </div>
 
               {/* Mobile actions box */}
-              <div className="md:hidden rounded-lg border border-amber-300 bg-amber-50 p-2 flex flex-col gap-2">
+              <div className={`md:hidden rounded-lg border p-2 flex flex-col gap-2 transition-colors duration-300 ${
+                isDarkMode 
+                  ? 'border-amber-300 bg-amber-50' 
+                  : 'border-amber-400 bg-amber-100'
+              }`}>
                 <button
                   type="button"
                   onClick={() => setShowAuthControls((v) => !v)}
-                  className="w-full rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-stone-800 hover:bg-amber-100 hover:text-stone-900 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                  className={`w-full rounded-md border px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 transition-colors duration-300 ${
+                    isDarkMode 
+                      ? 'focus:ring-amber-300' 
+                      : 'focus:ring-amber-400'
+                  } ${themeClasses.button}`}
                 >
                   {showAuthControls ? "Hide token" : "Add token"}
                 </button>
@@ -839,13 +921,21 @@ export default function AppShell() {
                   <button
                     onClick={onFetch}
                     disabled={isLoading}
-                    className="w-full rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-stone-800 hover:bg-amber-100 hover:text-stone-900 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                    className={`w-full rounded-md border px-3 py-2 text-sm font-medium disabled:opacity-50 focus:outline-none focus:ring-2 transition-colors duration-300 ${
+                      isDarkMode 
+                        ? 'focus:ring-amber-300' 
+                        : 'focus:ring-amber-400'
+                    } ${themeClasses.button}`}
                   >
                     {isLoading ? "Fetching..." : "Fetch"}
                   </button>
                   <button
                     onClick={onReset}
-                    className="w-full rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-stone-800 hover:bg-amber-100 hover:text-stone-900 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                    className={`w-full rounded-md border px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 transition-colors duration-300 ${
+                      isDarkMode 
+                        ? 'focus:ring-amber-300' 
+                        : 'focus:ring-amber-400'
+                    } ${themeClasses.button}`}
                   >
                     Clear
                   </button>
@@ -853,7 +943,7 @@ export default function AppShell() {
               </div>
 
               <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                <div className="text-xs text-zinc-500">
+                <div className={`text-xs transition-colors duration-300 ${isDarkMode ? 'text-zinc-500' : 'text-gray-500'}`}>
                   <span className="font-mono font-semibold">{httpMethod}</span> <span className="font-mono">{`{domain}{endpoint}`}</span> → <span className="font-mono">{composedUrl || "(empty)"}</span>
                 </div>
                 {/* Action buttons moved to the right-side box */}
@@ -861,16 +951,16 @@ export default function AppShell() {
               
               {/* Debug headers section */}
               {token && showAuthControls && (
-                <div className="text-xs text-zinc-400 bg-zinc-800/50 p-2 rounded border border-zinc-700">
-                  <div className="font-semibold text-zinc-300 mb-1">Request Details:</div>
+                <div className={`text-xs p-2 rounded border transition-colors duration-300 ${themeClasses.debugPanel}`}>
+                  <div className={`font-semibold mb-1 transition-colors duration-300 ${isDarkMode ? 'text-zinc-300' : 'text-gray-700'}`}>Request Details:</div>
                   {tokenType === "Query Parameter" ? (
                     <div className="font-mono break-all">
-                      <span className="text-amber-300">URL:</span> <span className="text-zinc-200 break-all">{composedUrl}</span>
+                      <span className="text-amber-300">URL:</span> <span className={`break-all transition-colors duration-300 ${isDarkMode ? 'text-zinc-200' : 'text-gray-800'}`}>{composedUrl}</span>
                     </div>
                   ) : (
                     Object.entries(buildAuthHeaders(tokenType, token, customHeaderName, customPrefix, queryParamName, cookieName)).map(([key, value]) => (
                       <div key={key} className="font-mono break-all">
-                        <span className="text-amber-300">{key}:</span> <span className="text-zinc-200 break-all">{value}</span>
+                        <span className="text-amber-300">{key}:</span> <span className={`break-all transition-colors duration-300 ${isDarkMode ? 'text-zinc-200' : 'text-gray-800'}`}>{value}</span>
                       </div>
                     ))
                   )}
@@ -882,19 +972,33 @@ export default function AppShell() {
                   {domainInvalid && <p className="text-red-600">Invalid domain URL.</p>}
                   {endpointInvalid && <p className="text-red-600">Endpoint must start with "/".</p>}
                   {error && (
-                    <div className="mt-1 rounded-md border border-red-200 bg-red-50 p-3 text-red-700 flex items-center justify-between gap-3">
+                    <div className={`mt-1 rounded-md border p-3 flex items-center justify-between gap-3 transition-colors duration-300 ${themeClasses.errorPanel}`}>
                       <p className="text-xs">{error}</p>
-                      <button
-                        type="button"
-                        onClick={onFetch}
-                        className="rounded-md bg-red-600 text-white px-3 py-1 text-xs hover:bg-red-700"
-                      >
-                        Retry
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setError(null)}
+                          className="rounded-md px-3 py-1 text-xs border border-red-500/40 hover:bg-red-500/20"
+                          title="Dismiss"
+                        >
+                          ×
+                        </button>
+                        <button
+                          type="button"
+                          onClick={onFetch}
+                          className={`rounded-md px-3 py-1 text-xs transition-colors duration-200 ${
+                            isDarkMode
+                              ? 'bg-red-500/15 text-red-200 border border-red-400/30 hover:bg-red-500/25'
+                              : 'bg-red-100 text-red-800 border border-red-300 hover:bg-red-200'
+                          }`}
+                        >
+                          Retry
+                        </button>
+                      </div>
                     </div>
                   )}
                   {!error && statusCode && statusCode >= 200 && (
-                    <p className="text-zinc-600">Status: {statusCode}</p>
+                    <p className={`transition-colors duration-300 ${isDarkMode ? 'text-zinc-600' : 'text-gray-600'}`}>Status: {statusCode}</p>
                   )}
                 </div>
               )}
@@ -903,9 +1007,17 @@ export default function AppShell() {
             {/* Results */}
             <section aria-label="Results" className="grid grid-cols-1 gap-6 md:gap-8 lg:grid-cols-2">
               {/* API Preview - Dark theme */}
-              <div className="rounded-lg border border-slate-800 bg-slate-950 min-h-[360px] lg:min-h-[480px] flex flex-col shadow-sm relative">
-                <div className="flex items-center justify-between gap-3 border-b border-slate-800 bg-slate-900/60 px-3 py-2 rounded-t-lg">
-                  <h3 className="text-xs font-medium text-zinc-200">Raw Response</h3>
+              <div className={`rounded-lg border min-h-[360px] lg:min-h-[480px] flex flex-col shadow-sm relative transition-colors duration-300 ${
+                isDarkMode 
+                  ? 'border-slate-800 bg-slate-950' 
+                  : 'border-gray-300 bg-white'
+              }`}>
+                <div className={`flex items-center justify-between gap-3 border-b px-3 py-2 rounded-t-lg transition-colors duration-300 ${
+                  isDarkMode 
+                    ? 'border-slate-800 bg-slate-900/60' 
+                    : 'border-gray-200 bg-gray-50'
+                }`}>
+                  <h3 className={`text-xs font-medium transition-colors duration-300 ${isDarkMode ? 'text-zinc-200' : 'text-gray-800'}`}>Raw Response</h3>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
@@ -913,7 +1025,11 @@ export default function AppShell() {
                         await copyText(rawJson);
                         setToast("Copied JSON");
                       }}
-                      className="text-[11px] text-zinc-300 hover:text-white px-2 py-1 rounded border border-slate-800 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-black"
+                      className={`text-[11px] px-2 py-1 rounded border focus:outline-none focus:ring-2 focus:ring-black transition-colors duration-300 ${
+                        isDarkMode 
+                          ? 'text-zinc-300 hover:text-white border-slate-800 hover:bg-slate-800' 
+                          : 'text-gray-600 hover:text-gray-800 border-gray-300 hover:bg-gray-100'
+                      }`}
                       title="Copy JSON"
                     >
                       Copy
@@ -921,7 +1037,11 @@ export default function AppShell() {
                     <button
                       type="button"
                       onClick={() => downloadTextAsFile(rawJson, "response.json")}
-                      className="text-[11px] text-zinc-300 hover:text-white px-2 py-1 rounded border border-slate-800 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-black"
+                      className={`text-[11px] px-2 py-1 rounded border focus:outline-none focus:ring-2 focus:ring-black transition-colors duration-300 ${
+                        isDarkMode 
+                          ? 'text-zinc-300 hover:text-white border-slate-800 hover:bg-slate-800' 
+                          : 'text-gray-600 hover:text-gray-800 border-gray-300 hover:bg-gray-100'
+                      }`}
                       title="Download JSON"
                     >
                       Download
@@ -929,27 +1049,35 @@ export default function AppShell() {
                   </div>
                 </div>
                 <div
-                  className="flex-1 overflow-auto p-3 cursor-pointer"
+                  className={`flex-1 overflow-auto p-3 cursor-pointer transition-colors duration-300 ${
+                    isDarkMode 
+                      ? 'bg-slate-950' 
+                      : 'bg-white'
+                  }`}
                   onClick={openPasteOverlayAndMaybeReadClipboard}
                   title="Click to paste JSON"
                 >
                   {isLoading ? (
-                    <div className="flex items-center gap-2 text-zinc-300 text-xs">
-                      <span className="inline-block h-3 w-3 rounded-full border-2 border-zinc-400 border-t-transparent animate-spin"></span>
+                    <div className={`flex items-center gap-2 text-xs transition-colors duration-300 ${isDarkMode ? 'text-zinc-300' : 'text-gray-600'}`}>
+                      <span className={`inline-block h-3 w-3 rounded-full border-2 border-t-transparent animate-spin transition-colors duration-300 ${isDarkMode ? 'border-zinc-400' : 'border-gray-400'}`}></span>
                       Fetching…
                     </div>
                   ) : parsedObject ? (
-                    <pre className="text-xs leading-relaxed whitespace-pre-wrap break-words text-zinc-50 font-mono">
+                    <pre className={`text-xs leading-relaxed whitespace-pre-wrap break-words font-mono transition-colors duration-300 ${isDarkMode ? 'text-zinc-50' : 'text-gray-900'}`}>
                       <JsonCode value={parsedObject} depth={0} />
                     </pre>
                   ) : (
-                    <p className="text-xs text-zinc-400">No response yet. Click Fetch to view API output.</p>
+                    <p className={`text-xs transition-colors duration-300 ${isDarkMode ? 'text-zinc-400' : 'text-gray-500'}`}>No response yet. Click Fetch to view API output.</p>
                   )}
                 </div>
 
                 {isPasteOverlayOpen && (
-                  <div className="absolute inset-0 bg-slate-950/95 p-3 flex flex-col gap-2">
-                    <label className="text-[11px] text-zinc-300">Paste JSON below, then press Ctrl+Enter or Apply</label>
+                  <div className={`absolute inset-0 p-3 flex flex-col gap-2 transition-colors duration-300 ${
+                    isDarkMode 
+                      ? 'bg-slate-950/95' 
+                      : 'bg-white/95'
+                  }`}>
+                    <label className={`text-[11px] transition-colors duration-300 ${isDarkMode ? 'text-zinc-300' : 'text-gray-600'}`}>Paste JSON below, then press Ctrl+Enter or Apply</label>
                     <textarea
                       value={pasteBuffer}
                       onChange={(e) => setPasteBuffer(e.target.value)}
@@ -960,21 +1088,33 @@ export default function AppShell() {
                         }
                       }}
                       autoFocus
-                      className="flex-1 w-full resize-none rounded-md border border-slate-800 bg-slate-900 text-zinc-100 text-xs font-mono p-3 outline-none focus:ring-0 focus:border-[0.8px] focus:border-slate-700"
+                      className={`flex-1 w-full resize-none rounded-md border text-xs font-mono p-3 outline-none focus:ring-0 focus:border-[0.8px] transition-colors duration-300 ${
+                        isDarkMode 
+                          ? 'border-slate-800 bg-slate-900 text-zinc-100 focus:border-slate-700' 
+                          : 'border-gray-300 bg-gray-50 text-gray-900 focus:border-gray-400'
+                      }`}
                       placeholder="Paste JSON here"
                     />
                     <div className="flex items-center justify-end gap-2">
                       <button
                         type="button"
                         onClick={() => setIsPasteOverlayOpen(false)}
-                        className="rounded-md border border-slate-700 px-3 py-1.5 text-xs text-zinc-300 hover:bg-slate-800"
+                        className={`rounded-md border px-3 py-1.5 text-xs transition-colors duration-300 ${
+                          isDarkMode 
+                            ? 'border-slate-700 text-zinc-300 hover:bg-slate-800' 
+                            : 'border-gray-300 text-gray-600 hover:bg-gray-100'
+                        }`}
                       >
                         Cancel
                       </button>
                       <button
                         type="button"
                         onClick={applyPastedJson}
-                        className="rounded-md bg-zinc-100 text-zinc-900 px-3 py-1.5 text-xs hover:bg-white"
+                        className={`rounded-md px-3 py-1.5 text-xs transition-colors duration-300 ${
+                          isDarkMode 
+                            ? 'bg-zinc-100 text-zinc-900 hover:bg-white' 
+                            : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                        }`}
                       >
                         Apply
                       </button>
@@ -984,9 +1124,17 @@ export default function AppShell() {
               </div>
 
               {/* Path Detector - Vintage soft theme */}
-              <div className="rounded-lg border border-amber-300 bg-amber-50 min-h-[360px] lg:min-h-[480px] flex flex-col shadow-sm">
-                <div className="flex items-center justify-between gap-3 border-b border-amber-200 bg-amber-100 px-3 py-2 rounded-t-lg">
-                  <h3 className="text-xs font-medium text-zinc-700">Detected JSON Paths</h3>
+              <div className={`rounded-lg border min-h-[360px] lg:min-h-[480px] flex flex-col shadow-sm transition-colors duration-300 ${
+                isDarkMode 
+                  ? 'border-amber-300 bg-amber-50' 
+                  : 'border-amber-400 bg-amber-100'
+              }`}>
+                <div className={`flex items-center justify-between gap-3 border-b px-3 py-2 rounded-t-lg transition-colors duration-300 ${
+                  isDarkMode 
+                    ? 'border-amber-200 bg-amber-100' 
+                    : 'border-amber-300 bg-amber-200'
+                }`}>
+                  <h3 className={`text-xs font-medium transition-colors duration-300 ${isDarkMode ? 'text-zinc-700' : 'text-zinc-800'}`}>Detected JSON Paths</h3>
                 </div>
                 <div className="p-3">
                   {/* Search */}
@@ -996,13 +1144,19 @@ export default function AppShell() {
                       placeholder="Search paths (e.g., name)"
                       value={pathSearch}
                       onChange={(e) => setPathSearch(e.target.value)}
-                      className="w-full rounded-md border border-amber-300 bg-white/90 px-3 py-2 text-sm text-black outline-none focus:ring-2 focus:ring-amber-300"
+                      className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 transition-colors duration-300 ${
+                        isDarkMode 
+                          ? 'border-amber-300 bg-white/90 text-black focus:ring-amber-300' 
+                          : 'border-amber-400 bg-white text-black focus:ring-amber-400'
+                      }`}
                     />
                     {pathSearch && (
                       <button
                         type="button"
                         onClick={() => setPathSearch("")}
-                        className="text-xs text-stone-700 hover:underline"
+                        className={`text-xs hover:underline transition-colors duration-300 ${
+                          isDarkMode ? 'text-stone-700' : 'text-stone-800'
+                        }`}
                         title="Clear"
                       >
                         × Clear
@@ -1049,7 +1203,11 @@ export default function AppShell() {
             <button
               type="button"
               onClick={() => setShowGuide((v) => !v)}
-              className="w-full rounded-t-md border border-zinc-700 border-b-0 bg-zinc-900/40 px-3 py-2 text-sm font-medium text-zinc-200 hover:bg-zinc-900/60 hover:text-zinc-100 focus:outline-none focus:ring-0 focus-visible:outline-none active:outline-none active:ring-0"
+              className={`w-full rounded-t-md border border-b-0 px-3 py-2 text-sm font-medium focus:outline-none focus:ring-0 focus-visible:outline-none active:outline-none active:ring-0 transition-colors duration-300 ${
+                isDarkMode 
+                  ? 'border-zinc-700 bg-zinc-900/40 text-zinc-200 hover:bg-zinc-900/60 hover:text-zinc-100' 
+                  : 'border-gray-300 bg-gray-100 text-gray-800 hover:bg-gray-200 hover:text-gray-900'
+              }`}
             >
               {showGuide ? "Hide How FetchLens works" : "Show How FetchLens works"}
             </button>
@@ -1059,47 +1217,51 @@ export default function AppShell() {
             >
               <div
                 ref={guideRef}
-                className="rounded-b-none rounded-t-none border-x border-t-0 border-b-0 pb-20 border-zinc-700 bg-zinc-900/50 p-4 text-zinc-200 text-sm leading-6"
+                className={`rounded-b-none rounded-t-none border-x border-t-0 border-b-0 pb-20 p-4 text-sm leading-6 transition-colors duration-300 ${
+                  isDarkMode 
+                    ? 'border-zinc-700 bg-zinc-900/50 text-zinc-200' 
+                    : 'border-gray-300 bg-gray-50 text-gray-800'
+                }`}
               >
                 <ol className="list-decimal pl-5 space-y-2">
                   <li>
-                    <span className="font-semibold text-zinc-100">Enter API details:</span> Domain and Endpoint compose into one URL. Only GET is
+                    <span className={`font-semibold transition-colors duration-300 ${isDarkMode ? 'text-zinc-100' : 'text-gray-900'}`}>Enter API details:</span> Domain and Endpoint compose into one URL. Only GET is
                     supported now.
                   </li>
                   <li>
-                    <span className="font-semibold text-zinc-100">Optional Authorization:</span> Click Add token to reveal the token strip. Choose a token
+                    <span className={`font-semibold transition-colors duration-300 ${isDarkMode ? 'text-zinc-100' : 'text-gray-900'}`}>Optional Authorization:</span> Click Add token to reveal the token strip. Choose a token
                     type or a custom header, provide values, and the app builds the appropriate headers.
                   </li>
                   <li>
-                    <span className="font-semibold text-zinc-100">Fetch and preview:</span> Press Fetch. We measure status, time, and size. The Raw Response
+                    <span className={`font-semibold transition-colors duration-300 ${isDarkMode ? 'text-zinc-100' : 'text-gray-900'}`}>Fetch and preview:</span> Press Fetch. We measure status, time, and size. The Raw Response
                     panel shows your JSON with readable colors. Click inside the panel to open a paste overlay to test other JSON
                     quickly.
                   </li>
                   <li>
-                    <span className="font-semibold text-zinc-100">Path explorer:</span> The right panel renders a collapsible JSON tree (Windows-like). Search
+                    <span className={`font-semibold transition-colors duration-300 ${isDarkMode ? 'text-zinc-100' : 'text-gray-900'}`}>Path explorer:</span> The right panel renders a collapsible JSON tree (Windows-like). Search
                     prunes the tree and auto-expands matches. Hover a node to reveal actions.
                   </li>
                   <li>
-                    <span className="font-semibold text-zinc-100">Dynamic path copy:</span> Clicking a leaf or the Copy action copies a dynamic path suited for
+                    <span className={`font-semibold transition-colors duration-300 ${isDarkMode ? 'text-zinc-100' : 'text-gray-900'}`}>Dynamic path copy:</span> Clicking a leaf or the Copy action copies a dynamic path suited for
                     frontend loops. Example: <code className="font-mono">data[0].categories[1].products[0].variants[0].prices.USD</code>
                     becomes <code className="font-mono">data[i].categories[j].products[k].variants[l].prices.USD</code> so you can paste it
                     directly inside nested map callbacks.
                   </li>
                   <li>
-                    <span className="font-semibold text-zinc-100">Reset easily:</span> Clear the inputs and state with Clear. The token panel collapses and the
+                    <span className={`font-semibold transition-colors duration-300 ${isDarkMode ? 'text-zinc-100' : 'text-gray-900'}`}>Reset easily:</span> Clear the inputs and state with Clear. The token panel collapses and the
                     inputs resume the compact layout.
                   </li>
                 </ol>
-                <p className="mt-3 text-zinc-300">
+                <p className={`mt-3 transition-colors duration-300 ${isDarkMode ? 'text-zinc-300' : 'text-gray-600'}`}>
                   Tips: Paste any JSON to experiment without hitting an API. Use the search to narrow large payloads. The design aims for a
                   gentle vintage feel while keeping contrast high for readability.
                 </p>
                 
-                <div className="mt-6 pt-4 border-t border-zinc-700">
-                  <h4 className="font-semibold text-zinc-100 mb-3">🔐 Advanced Token Authentication System</h4>
-                  <div className="space-y-3 text-zinc-300">
+                <div className={`mt-6 pt-4 border-t transition-colors duration-300 ${isDarkMode ? 'border-zinc-700' : 'border-gray-300'}`}>
+                  <h4 className={`font-semibold mb-3 transition-colors duration-300 ${isDarkMode ? 'text-zinc-100' : 'text-gray-900'}`}>🔐 Advanced Token Authentication System</h4>
+                  <div className={`space-y-3 transition-colors duration-300 ${isDarkMode ? 'text-zinc-300' : 'text-gray-600'}`}>
                     <p>
-                      <span className="font-semibold text-zinc-100">Multiple Authentication Methods:</span> FetchLens supports 7 different authentication approaches:
+                      <span className={`font-semibold transition-colors duration-300 ${isDarkMode ? 'text-zinc-100' : 'text-gray-900'}`}>Multiple Authentication Methods:</span> FetchLens supports 7 different authentication approaches:
                     </p>
                     <ul className="list-disc pl-6 space-y-1">
                       <li><span className="font-mono text-amber-300">Bearer</span> - Standard JWT tokens with "Bearer " prefix</li>
@@ -1111,21 +1273,21 @@ export default function AppShell() {
                       <li><span className="font-mono text-amber-300">Refresh Token</span> - For token refresh flows</li>
                     </ul>
                     <p>
-                      <span className="font-semibold text-zinc-100">Smart Debugging:</span> The Request Details section shows exactly what headers and URLs are being sent, 
+                      <span className={`font-semibold transition-colors duration-300 ${isDarkMode ? 'text-zinc-100' : 'text-gray-900'}`}>Smart Debugging:</span> The Request Details section shows exactly what headers and URLs are being sent, 
                       making it easy to troubleshoot authentication issues. Console logging provides detailed request/response information.
                     </p>
                     <p>
-                      <span className="font-semibold text-zinc-100">Preset Options:</span> Common header names and parameter names are available as dropdown presets, 
+                      <span className={`font-semibold transition-colors duration-300 ${isDarkMode ? 'text-zinc-100' : 'text-gray-900'}`}>Preset Options:</span> Common header names and parameter names are available as dropdown presets, 
                       but you can always enter custom values for unique API requirements.
                     </p>
                   </div>
                 </div>
                 
-                <div className="mt-6 pt-4 border-t border-zinc-700">
-                  <p className="text-zinc-400 text-xs">
-                    <span className="font-semibold text-zinc-300">Created by:</span> Shurov <br/>
-                    <span className="font-semibold text-zinc-300">Authentication System:</span> Enhanced with multiple auth methods and debugging features<br/>
-                    <span className="font-semibold text-zinc-300">Version:</span> 1.0 - Full-featured API exploration tool
+                <div className={`mt-6 pt-4 border-t transition-colors duration-300 ${isDarkMode ? 'border-zinc-700' : 'border-gray-300'}`}>
+                  <p className={`text-xs transition-colors duration-300 ${isDarkMode ? 'text-zinc-400' : 'text-gray-500'}`}>
+                    <span className={`font-semibold transition-colors duration-300 ${isDarkMode ? 'text-zinc-300' : 'text-gray-700'}`}>Created by:</span> Shurov <br/>
+                    <span className={`font-semibold transition-colors duration-300 ${isDarkMode ? 'text-zinc-300' : 'text-gray-700'}`}>Authentication System:</span> Enhanced with multiple auth methods and debugging features<br/>
+                    <span className={`font-semibold transition-colors duration-300 ${isDarkMode ? 'text-zinc-300' : 'text-gray-700'}`}>Version:</span> 1.0 - Full-featured API exploration tool
                   </p>
                 </div>
               </div>
